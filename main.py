@@ -1,7 +1,8 @@
 from bs4 import BeautifulSoup
 from datetime import datetime
 import requests
-import re
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
 
 current_year = datetime.now().year
 
@@ -18,5 +19,9 @@ while True:
             print('Retype year with numbers in a suggested variant - YYYY\n')
             continue
 
-bb_web_page = requests.get(url=f'https://www.billboard.com/charts/year-end/{chosen_year}/hot-100-songs')
-print(bb_web_page.text)
+bb_web_page = requests.get(url=f'https://www.billboard.com/charts/year-end/{chosen_year}/hot-100-songs').text
+soup = BeautifulSoup(bb_web_page, 'html.parser')
+artists = [artist.getText().replace('\n', '') for artist in soup.find_all('div', 'ye-chart-item__artist')]
+titles = [title.getText().replace('\n', '') for title in soup.find_all('div', 'ye-chart-item__title')]
+artist_title_song = list(zip(artists, titles))
+
