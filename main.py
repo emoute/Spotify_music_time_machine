@@ -2,8 +2,12 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 import requests
 import spotipy
+import os
 from spotipy.oauth2 import SpotifyOAuth
 
+app_id = os.environ.get('APP_CLIENT_ID')
+app_secret = os.environ.get('APP_CLIENT_SECRET')
+redirect_uri = os.environ.get('APP_REDIRECT_URI')
 current_year = datetime.now().year
 
 while True:
@@ -22,6 +26,31 @@ while True:
 bb_web_page = requests.get(url=f'https://www.billboard.com/charts/year-end/{chosen_year}/hot-100-songs').text
 soup = BeautifulSoup(bb_web_page, 'html.parser')
 artists = [artist.getText().replace('\n', '') for artist in soup.find_all('div', 'ye-chart-item__artist')]
-titles = [title.getText().replace('\n', '') for title in soup.find_all('div', 'ye-chart-item__title')]
-artist_title_song = list(zip(artists, titles))
+tracks = [track.getText().replace('\n', '') for track in soup.find_all('div', 'ye-chart-item__title')]
+artist_title_song = list(zip(artists, tracks))
 
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=app_id,
+                                               client_secret=app_secret,
+                                               redirect_uri='http://example.com',
+                                               scope='playlist-modify-private',
+                                               cache_path='token.txt'))
+user_id = sp.current_user()["id"]
+track_uris = []
+
+for track in tracks:
+    result = sp.search(q=f'track:{track} year:{chosen_year}', type='track')
+    try:
+        uri = result['tracks']['items'][0]['uri']
+        track_uris.append(uri)
+    except IndexError:
+        print(f'{track} doesn\'t exists in Spotify. Skip...')
+
+playlist_id = sp.user_playlist_create(
+    user_id,
+    f'{chosen_year} year-end Billboard 100',
+    public=False,
+    collaborative=False,
+    description=f'Playlist with songs from Year-end Billboard Top 100 by {chosen_year}.'
+)['id']
+
+sp.playlist_add_items(playlist_id, track_uris, position=None)
